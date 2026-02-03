@@ -2,7 +2,7 @@
 
 A Firefox extension that visualizes YouTube comments directly on the video timeline. Find the most engaging parts of a video instantly based on community timestamps.
 
-![Extension Screenshot](https://via.placeholder.com/800x400?text=Insert+Screenshot+Here)
+![Extension Screenshot]([https://via.placeholder.com/800x400?text=Insert+Screenshot+Here](https://addons.mozilla.org/user-media/previews/thumbs/348/348369.jpg?modified=1768910827))
 *(Place a screenshot of your extension here later)*
 
 ## ✨ Features
@@ -32,7 +32,7 @@ A Firefox extension that visualizes YouTube comments directly on the video timel
 ## 📦 Installation (For Users)
 
 *(Link to Firefox Add-ons Store will go here)*
-[Download from Firefox Add-ons](https://addons.mozilla.org/...)
+[Download from Firefox Add-ons][(https://addons.mozilla.org/...](https://addons.mozilla.org/de/firefox/addon/youtube-comment-timeline/))
 
 ## 🛠 Technologies
 
