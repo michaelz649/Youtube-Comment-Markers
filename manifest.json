@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Youtube Comment Markers",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Visualiza comentarios directamente sobre la línea de tiempo del vídeo.",
   "icons": {
     "48": "icons/icon-48.png",

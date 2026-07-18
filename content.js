@@ -414,7 +414,7 @@ function buildSingleTooltip(comment, videoElement) {
   // Hint
   const hint = document.createElement('span');
   hint.className = 'yt-tooltip-hint';
-  hint.textContent = 'Zum Kommentar ➜';
+  hint.textContent = 'Ir al comentario ➜';
   header.appendChild(hint);
   
   container.appendChild(header);
@@ -444,7 +444,7 @@ function buildClusterTooltip(cluster, videoElement) {
   // Header
   const header = document.createElement('div');
   header.className = 'yt-tooltip-cluster-header';
-  header.textContent = `${cluster.length} Kommentare an dieser Stelle`;
+  header.textContent = `${cluster.length} comentarios en este momento`;
   container.appendChild(header);
   
   // Liste

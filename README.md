@@ -4,7 +4,7 @@
 
 [![GitHub Stars](https://img.shields.io/github/stars/CheswickDEV/Youtube-Comment-Timeline-Overlay?color=00d4ff&labelColor=16161f)](https://github.com/CheswickDEV/Youtube-Comment-Timeline-Overlay)
 [![Last Commit](https://img.shields.io/github/last-commit/CheswickDEV/Youtube-Comment-Timeline-Overlay?color=a855f7&labelColor=16161f)](https://github.com/CheswickDEV/Youtube-Comment-Timeline-Overlay/commits/main)
-![Version](https://img.shields.io/badge/version-1.2.1-00d4ff?labelColor=16161f)
+![Version](https://img.shields.io/badge/version-1.2.2-00d4ff?labelColor=16161f)
 ![Status](https://img.shields.io/badge/estado-Activo-00d4ff?labelColor=16161f)
 ![License](https://img.shields.io/badge/licencia-MIT-a855f7?labelColor=16161f)
 ![Firefox](https://img.shields.io/badge/Firefox-Manifest_v3-a855f7?logo=firefox&logoColor=white&labelColor=16161f)
@@ -101,8 +101,16 @@ Youtube-Comment-Timeline-Overlay/
 
 ## 📝 Changelog
 
-### v1.2.1 (actual · editada)
+### v1.2.2 (actual · editada)
+- 🌐 Textos de interfaz en alemán traducidos al español
+
+<details>
+<summary>v1.2.1</summary>
+
+### v1.2.1
 - 🔧 Fix aviso CSP: inline script extraído a `popup.js`
+
+</details>
 
 <details>
 <summary>Versiones anteriores</summary>
