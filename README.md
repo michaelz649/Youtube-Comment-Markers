@@ -1,4 +1,4 @@
-# 🎬 YouTube Comment Timeline Overlay
+# 🎬 Youtube Comment Markers
 
 ### Visualiza los comentarios directamente sobre la línea de tiempo del vídeo. Detecta momentos destacados, debates y reacciones al instante con marcadores de posición.
 
