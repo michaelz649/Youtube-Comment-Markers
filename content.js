@@ -16,20 +16,244 @@ function parseTimestampToSeconds(timeStr) {
   return seconds;
 }
 
-function autoLoadMoreComments() {
-  // NUR auf Video-Seiten scrollen! (URL muss /watch?v= enthalten)
-  if (!window.location.href.includes('/watch?v=')) return;
-  
-  const currentCount = document.querySelectorAll('ytd-comment-thread-renderer').length;
-  if (currentCount > 600) return;
+// --- SETTINGS ---
 
-  const continuation = document.querySelector('ytd-continuation-item-renderer');
-  
-  if (continuation) {
-      window.dispatchEvent(new Event('scroll'));
-      continuation.scrollIntoView({ block: 'end', behavior: 'instant' });
-      window.dispatchEvent(new Event('resize'));
+let settings = { maxPages: 15, debug: false };
+
+browser.storage.sync.get({ maxPages: 15, debug: false }).then(s => { settings = s; });
+
+function dbg(...args) {
+  if (settings.debug) console.log('[YT-Overlay]', ...args);
+}
+
+// --- INNERTUBE API COMMENT LOADING ---
+
+let apiComments = [];
+let apiLoading = false;
+
+function getPageConfig() {
+  try {
+    const ytcfg = window.wrappedJSObject?.ytcfg || window.ytcfg;
+    dbg('getPageConfig: ytcfg found?', !!ytcfg);
+
+    let apiKey = null;
+    let context = null;
+
+    if (ytcfg) {
+      // data_ is blocked by Firefox Xray wrapper — use get() method instead
+      try { apiKey = ytcfg.get('INNERTUBE_API_KEY'); } catch (e) {}
+      try {
+        const rawCtx = ytcfg.get('INNERTUBE_CONTEXT');
+        if (rawCtx) context = JSON.parse(JSON.stringify(rawCtx));
+      } catch (e) {}
+    }
+
+    // Fallback: minimal context — cookies carry authentication automatically
+    if (!context) {
+      const lang = document.documentElement.lang || 'en';
+      context = { client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: lang } };
+      dbg('getPageConfig: using fallback context');
+    }
+
+    dbg('getPageConfig: apiKey=', apiKey ? apiKey.slice(0, 8) + '…' : 'none (ok)', '| context=', !!context);
+    return { apiKey, context };
+  } catch (e) {
+    console.error('[YT-Overlay] getPageConfig error:', e);
+    return null;
   }
+}
+
+function getContinuationToken() {
+  const el = document.querySelector('ytd-continuation-item-renderer');
+  dbg('getContinuationToken: element found?', !!el);
+  if (!el) return null;
+  try {
+    const src = el.wrappedJSObject || el;
+    const data = src.data || src.__data?.data;
+    const token = data?.continuationEndpoint?.continuationCommand?.token ?? null;
+    dbg('getContinuationToken: data=', !!data, '| token=', token ? token.slice(0, 20) + '…' : 'MISSING');
+    return token;
+  } catch (e) {
+    console.error('[YT-Overlay] getContinuationToken error:', e);
+    return null;
+  }
+}
+
+function parseItemsForComments(items, mutations) {
+  const comments = [];
+  let nextToken = null;
+
+  // --- New ViewModel format: comments live in mutations, not items ---
+  for (const m of (mutations || [])) {
+    if (m.payload?.commentEntityPayload) {
+      const payload = m.payload.commentEntityPayload;
+      const text = payload.properties?.content?.content || '';
+      const timeMatch = text.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+      if (timeMatch) {
+        comments.push({
+          author: payload.author?.displayName || '',
+          avatarUrl: payload.author?.avatarThumbnailUrl || '',
+          text,
+          likeCount: '0',
+          replyCount: String(payload.properties?.replyCount ?? 0),
+          timestampStr: timeMatch[0],
+          seconds: parseTimestampToSeconds(timeMatch[0]),
+          element: null
+        });
+      }
+    }
+    // Continuation token can be embedded in mutations
+    const mutToken = m.payload?.continuationItemRendererEntityPayload?.token;
+    if (mutToken && !nextToken) nextToken = mutToken;
+  }
+
+  // --- Legacy format + continuation token from items ---
+  for (const item of items) {
+    if (item.commentThreadRenderer) {
+      const renderer = item.commentThreadRenderer?.comment?.commentRenderer;
+      if (!renderer) continue;
+      const text = (renderer.contentText?.runs || []).map(r => r.text || '').join('');
+      const timeMatch = text.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+      if (!timeMatch) continue;
+      const thumbs = renderer.authorThumbnail?.thumbnails || [];
+      comments.push({
+        author: (renderer.authorText?.runs || []).map(r => r.text || '').join(''),
+        avatarUrl: thumbs[thumbs.length - 1]?.url || '',
+        text,
+        likeCount: renderer.voteCount?.simpleText || '0',
+        replyCount: String(renderer.replyCount?.replyCount ?? 0),
+        timestampStr: timeMatch[0],
+        seconds: parseTimestampToSeconds(timeMatch[0]),
+        element: null
+      });
+    } else if (item.continuationItemRenderer) {
+      const t = item.continuationItemRenderer
+        ?.continuationEndpoint?.continuationCommand?.token;
+      if (t) nextToken = t;
+    }
+  }
+
+  return { comments, nextToken };
+}
+
+async function loadCommentsViaAPI() {
+  if (apiLoading || !window.location.href.includes('/watch?v=')) return;
+  apiLoading = true;
+  dbg('loadCommentsViaAPI: starting');
+
+  try {
+    const config = getPageConfig();
+    if (!config || !config.context) { console.warn('[YT-Overlay] loadCommentsViaAPI: no config, aborting'); return; }
+
+    let token = getContinuationToken();
+    if (!token) { console.warn('[YT-Overlay] loadCommentsViaAPI: no token, aborting'); return; }
+
+    const urlBase = config.apiKey
+      ? `/youtubei/v1/next?key=${encodeURIComponent(config.apiKey)}`
+      : '/youtubei/v1/next';
+
+    let page = 0;
+    while (token && page < settings.maxPages) {
+      page++;
+      dbg(`fetching page ${page}, apiComments so far: ${apiComments.length}`);
+
+      let data;
+      try {
+        const resp = await fetch(urlBase, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context: config.context, continuation: token })
+        });
+        dbg(`page ${page} response status:`, resp.status);
+        if (!resp.ok) { console.error('[YT-Overlay] non-ok response, stopping'); break; }
+        data = await resp.json();
+        dbg(`page ${page} response keys:`, Object.keys(data));
+      } catch (e) {
+        console.error('[YT-Overlay] fetch error:', e);
+        break;
+      }
+
+      const endpoints = data?.onResponseReceivedEndpoints || [];
+
+      // Collect items from ALL endpoints (header in first, continuation in second)
+      let items = [];
+      for (const ep of endpoints) {
+        const epItems = ep?.appendContinuationItemsAction?.continuationItems
+                     || ep?.reloadContinuationItemsCommand?.continuationItems
+                     || [];
+        items = items.concat(epItems);
+      }
+      dbg(`page ${page} total items:`, items.length, '| types:', JSON.stringify(items.map(i => Object.keys(i)[0])));
+
+      // ViewModel: comments are in mutations
+      const mutations = data?.frameworkUpdates?.entityBatchUpdate?.mutations || [];
+      dbg(`page ${page} mutations:`, mutations.length, '| commentEntityPayload count:', mutations.filter(m => m.payload?.commentEntityPayload).length);
+
+      if (!items.length && !mutations.length) {
+        console.warn('[YT-Overlay] empty response, stopping');
+        break;
+      }
+
+      const { comments, nextToken } = parseItemsForComments(items, mutations);
+      dbg(`page ${page} timestamp comments found:`, comments.length, '| nextToken:', nextToken ? nextToken.slice(0,20)+'…' : 'null');
+      apiComments.push(...comments);
+      token = nextToken;
+
+      initOverlay();
+
+      // Throttle: randomized 700–1100ms between requests to stay under rate limits
+      await new Promise(r => setTimeout(r, 700 + Math.random() * 400));
+    }
+    dbg('loadCommentsViaAPI: done. Total API comments:', apiComments.length);
+  } finally {
+    apiLoading = false;
+  }
+}
+
+// --- DOM CONTINUATION WATCHER ---
+
+let commentAutoLoader = null;
+
+function stopCommentAutoLoader() {
+  if (commentAutoLoader) {
+    clearInterval(commentAutoLoader);
+    commentAutoLoader = null;
+  }
+}
+
+function startCommentAutoLoader() {
+  if (!window.location.href.includes('/watch?v=')) return;
+  stopCommentAutoLoader();
+
+  let ticks = 0;
+  const MAX_TICKS = 15; // 15 × 2s = 30s max wait before giving up
+
+  commentAutoLoader = setInterval(() => {
+    ticks++;
+    if (!window.location.href.includes('/watch?v=') || apiLoading || ticks > MAX_TICKS) {
+      if (ticks > MAX_TICKS) console.warn('[YT-Overlay] autoLoader: tick limit reached, stopping');
+      stopCommentAutoLoader();
+      return;
+    }
+
+    // Scope to comments section — avoids picking up sidebar/recommendations continuation
+    const commentsSection = document.querySelector('ytd-comments#comments');
+    const continuation = commentsSection
+      ? commentsSection.querySelector('ytd-continuation-item-renderer')
+      : null;
+    const currentCount = document.querySelectorAll('ytd-comment-thread-renderer').length;
+    dbg('autoLoader tick', ticks, ': domComments=', currentCount, '| commentsContinuation=', !!continuation, '| apiLoading=', apiLoading);
+
+    if (continuation && !apiLoading) {
+      // Token present in ytd-comments — API can fetch this page (1st or subsequent)
+      dbg('autoLoader: handing off to API, domComments=', currentCount);
+      stopCommentAutoLoader();
+      loadCommentsViaAPI();
+    } else if (!continuation && currentCount > 0) {
+      dbg('autoLoader: no continuation, all comments loaded, stopping');
+      stopCommentAutoLoader();
+    }
+  }, 2000);
 }
 
 function extractComments() {
@@ -90,6 +314,9 @@ function extractComments() {
     }
   });
   
+  // Merge API-fetched comments (pages 2+) — no DOM element, element: null
+  comments.push(...apiComments);
+
   return comments.sort((a, b) => a.seconds - b.seconds);
 }
 
@@ -369,8 +596,6 @@ function initOverlay() {
   // NUR auf Video-Seiten ausführen!
   if (!window.location.href.includes('/watch?v=')) return;
   
-  autoLoadMoreComments();
-
   const videoElement = document.querySelector('video');
   const progressBar = document.querySelector('.ytp-progress-bar');
   
@@ -420,8 +645,13 @@ function initOverlay() {
 
 // --- INIT & OBSERVERS ---
 
-setTimeout(initOverlay, 3000);
-document.addEventListener('yt-navigate-finish', () => setTimeout(initOverlay, 2000));
+setTimeout(() => { startCommentAutoLoader(); initOverlay(); }, 3000);
+document.addEventListener('yt-navigate-finish', () => {
+  stopCommentAutoLoader();
+  apiComments = [];
+  apiLoading = false;
+  setTimeout(() => { startCommentAutoLoader(); initOverlay(); }, 2000);
+});
 
 window.addEventListener('scroll', () => {
     if (window.ytTimelineDebounce) clearTimeout(window.ytTimelineDebounce);

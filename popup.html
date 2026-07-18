@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Comment Timeline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      width: 280px;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #272727;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 img { width: 18px; height: 18px; }
+    .field { margin-bottom: 12px; }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 5px;
+    }
+    label strong { color: #e8e8e8; }
+    input[type="number"] {
+      width: 75px;
+      background: #272727;
+      border: 1px solid #3f3f3f;
+      color: #fff;
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    input[type="number"]:focus { border-color: #ff0000; }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #e8e8e8;
+    }
+    input[type="checkbox"] {
+      width: 14px; height: 14px;
+      accent-color: #ff0000;
+      cursor: pointer;
+    }
+    .hint { font-size: 10px; color: #555; margin-top: 3px; }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #272727;
+    }
+    button {
+      flex: 1;
+      background: #ff0000;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #cc0000; }
+    button.secondary {
+      background: #272727;
+      color: #aaa;
+    }
+    button.secondary:hover { background: #333; color: #fff; }
+    #status {
+      font-size: 11px;
+      color: #3ea96b;
+      min-height: 14px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .pin-hint {
+      font-size: 10px;
+      color: #555;
+      margin-top: 10px;
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <img src="icons/icon-48.png" alt="">
+    Línea de tiempo
+  </h1>
+
+  <div class="field">
+    <label><strong>Páginas máximas</strong> (≈20 comentarios c/u)</label>
+    <input type="number" id="maxPages" min="1" max="100" value="15">
+    <div class="hint">Por defecto 15 páginas ≈ 300 comentarios</div>
+  </div>
+
+  <div class="field">
+    <div class="toggle-row">
+      <input type="checkbox" id="debugMode">
+      <label for="debugMode">Registro de depuración (consola)</label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="save">Guardar</button>
+    <button class="secondary" id="openOptions">Ajustes completos</button>
+  </div>
+  <div id="status"></div>
+
+  <div class="pin-hint">
+    Para fijar: clic derecho en el icono → <em>Anclar a la barra de herramientas</em>
+  </div>
+
+  <script src="options.js"></script>
+  <script>
+    document.getElementById('openOptions').addEventListener('click', () => {
+      browser.runtime.openOptionsPage();
+    });
+  </script>
+</body>
+</html>
