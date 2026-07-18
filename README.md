@@ -46,11 +46,10 @@ Los comentarios se agrupan en los momentos que importan — momentazos, controve
 
 ### Instalación manual (sin tienda)
 
-1. Descarga el archivo en `.zip`
-2. Renombra el archivo `.zip` a `.xpi`
-3. En Firefox → Menú → Complementos y temas
-4. Icono de engranaje → «Instalar complemento desde archivo…»
-5. Selecciona el archivo `.xpi`
+1. Descarga el archivo en `.xpi`
+2. En Firefox → Menú → Complementos y temas
+3. Icono de engranaje → «Instalar complemento desde archivo…»
+4. Selecciona el archivo `.xpi`
 
 Una vez instalado, **abre cualquier vídeo de YouTube** — los marcadores aparecen automáticamente cuando los comentarios cargan (~3 segundos).
 
