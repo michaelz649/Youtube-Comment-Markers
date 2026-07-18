@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Comment Timeline",
-  "version": "1.2",
+  "version": "1.2.1",
   "description": "Visualiza comentarios directamente sobre la línea de tiempo del vídeo.",
   "icons": {
     "48": "icons/icon-48.png",
